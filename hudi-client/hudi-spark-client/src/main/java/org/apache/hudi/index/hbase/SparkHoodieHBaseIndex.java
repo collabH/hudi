@@ -95,6 +95,7 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
   public static final String DEFAULT_SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG_NAME =
       "spark.dynamicAllocation.maxExecutors";
 
+  // column family and column
   private static final byte[] SYSTEM_COLUMN_FAMILY = Bytes.toBytes("_s");
   private static final byte[] COMMIT_TS_COLUMN = Bytes.toBytes("commit_ts");
   private static final byte[] FILE_NAME_COLUMN = Bytes.toBytes("file_name");
@@ -125,8 +126,11 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
   }
 
   private void init(HoodieWriteConfig config) {
+    // index get batch size
     this.multiPutBatchSize = config.getHbaseIndexGetBatchSize();
+    // 限制每个rs的qps
     this.maxQpsPerRegionServer = config.getHbaseIndexMaxQPSPerRegionServer();
+    // batch计算器
     this.putBatchSizeCalculator = new HBasePutBatchSizeCalculator();
     this.hBaseIndexQPSResourceAllocator = createQPSResourceAllocator(this.config);
   }
@@ -213,6 +217,12 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
     return generateStatement(key).setTimeRange(startTime, endTime);
   }
 
+  /**
+   *
+   * @param metaClient
+   * @param commitTs
+   * @return
+   */
   private boolean checkIfValidCommit(HoodieTableMetaClient metaClient, String commitTs) {
     HoodieTimeline commitTimeline = metaClient.getCommitsTimeline().filterCompletedInstants();
     // Check if the last commit ts for this row is 1) present in the timeline or
@@ -244,6 +254,7 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
         List<Get> statements = new ArrayList<>();
         List<HoodieRecord> currentBatchOfRecords = new LinkedList<>();
         // Do the tagging.
+        // 拼接批量语法，并配合限流器
         while (hoodieRecordIterator.hasNext()) {
           HoodieRecord rec = hoodieRecordIterator.next();
           statements.add(generateStatement(rec.getRecordKey()));
@@ -267,6 +278,7 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
             String commitTs = Bytes.toString(result.getValue(SYSTEM_COLUMN_FAMILY, COMMIT_TS_COLUMN));
             String fileId = Bytes.toString(result.getValue(SYSTEM_COLUMN_FAMILY, FILE_NAME_COLUMN));
             String partitionPath = Bytes.toString(result.getValue(SYSTEM_COLUMN_FAMILY, PARTITION_PATH_COLUMN));
+            // 校验元数据commit ts
             if (!checkIfValidCommit(metaClient, commitTs)) {
               // if commit is invalid, treat this as a new taggedRecord
               taggedRecords.add(currentRecord);
@@ -312,6 +324,14 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
     return new Result[keys.size()];
   }
 
+  /**
+   *  查找index对应localtion
+   * @param records
+   * @param context
+   * @param hoodieTable
+   * @param <R>
+   * @return
+   */
   @Override
   public <R> HoodieData<HoodieRecord<R>> tagLocation(
       HoodieData<HoodieRecord<R>> records, HoodieEngineContext context,
@@ -417,6 +437,13 @@ public class SparkHoodieHBaseIndex extends HoodieIndex<Object, Object> {
     return fileIdPartitionMap;
   }
 
+  /**
+   * 更新location操作并且更新底层index
+   * @param writeStatus
+   * @param context
+   * @param hoodieTable
+   * @return
+   */
   @Override
   public HoodieData<WriteStatus> updateLocation(
       HoodieData<WriteStatus> writeStatus, HoodieEngineContext context,

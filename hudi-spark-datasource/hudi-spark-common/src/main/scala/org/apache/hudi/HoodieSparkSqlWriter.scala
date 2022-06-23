@@ -57,6 +57,9 @@ import org.apache.spark.{SPARK_VERSION, SparkContext}
 import scala.collection.JavaConversions._
 import scala.collection.mutable
 
+/**
+ * spark sql hoodie文件写入器
+ */
 object HoodieSparkSqlWriter {
 
   private val log = LogManager.getLogger(getClass)
@@ -66,7 +69,9 @@ object HoodieSparkSqlWriter {
 
   def write(sqlContext: SQLContext,
             mode: SaveMode,
+           // hoodie params
             optParams: Map[String, String],
+           // 写入的df数据
             df: DataFrame,
             hoodieTableConfigOpt: Option[HoodieTableConfig] = Option.empty,
             hoodieWriteClient: Option[SparkRDDWriteClient[HoodieRecordPayload[Nothing]]] = Option.empty,
@@ -80,9 +85,13 @@ object HoodieSparkSqlWriter {
     val path = optParams("path")
     val basePath = new Path(path)
     val sparkContext = sqlContext.sparkContext
+    // get hadoop fs
     val fs = basePath.getFileSystem(sparkContext.hadoopConfiguration)
+    // 检验表是否存在主要查看.hoodie文件
     tableExists = fs.exists(new Path(basePath, HoodieTableMetaClient.METAFOLDER_NAME))
+    // 解析表配置
     var tableConfig = getHoodieTableConfig(sparkContext, path, hoodieTableConfigOpt)
+    // 校验表配置
     validateTableConfig(sqlContext.sparkSession, optParams, tableConfig, mode == SaveMode.Overwrite)
 
     val (parameters, hoodieConfig) = mergeParamsAndGetHoodieConfig(optParams, tableConfig, mode)
@@ -142,6 +151,7 @@ object HoodieSparkSqlWriter {
         val populateMetaFields = hoodieConfig.getBooleanOrDefault(HoodieTableConfig.POPULATE_META_FIELDS)
         val useBaseFormatMetaFile = hoodieConfig.getBooleanOrDefault(HoodieTableConfig.PARTITION_METAFILE_USE_BASE_FORMAT);
 
+        // build meta client
         val tableMetaClient = HoodieTableMetaClient.withPropertyBuilder()
           .setTableType(tableType)
           .setDatabaseName(databaseName)
