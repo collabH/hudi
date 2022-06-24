@@ -68,6 +68,16 @@ public class HoodieDeleteHelper<T extends HoodieRecordPayload, R> extends
     }
   }
 
+  /**
+   * 数据删除逻辑
+   * @param instantTime 实例时间
+   * @param keys keys
+   * @param context hoodie引擎context
+   * @param config 写入配置
+   * @param table hoodie表
+   * @param deleteExecutor delete执行器
+   * @return
+   */
   @Override
   public HoodieWriteMetadata<HoodieData<WriteStatus>> execute(String instantTime,
                                                               HoodieData<HoodieKey> keys,
@@ -78,6 +88,7 @@ public class HoodieDeleteHelper<T extends HoodieRecordPayload, R> extends
     try {
       HoodieData<HoodieKey> dedupedKeys = keys;
       final int parallelism = config.getDeleteShuffleParallelism();
+
       if (config.shouldCombineBeforeDelete()) {
         // De-dupe/merge if needed
         dedupedKeys = deduplicateKeys(keys, table, parallelism);
@@ -88,15 +99,19 @@ public class HoodieDeleteHelper<T extends HoodieRecordPayload, R> extends
       HoodieData<HoodieRecord<T>> dedupedRecords =
           dedupedKeys.map(key -> new HoodieAvroRecord(key, new EmptyHoodieRecordPayload()));
       Instant beginTag = Instant.now();
-      // perform index loop up to get existing location of records
+      // perform index loop up to get existing location of records,根据index逻辑查询hoodie record
       HoodieData<HoodieRecord<T>> taggedRecords = table.getIndex().tagLocation(dedupedRecords, context, table);
+      // 查询索引耗时
       Duration tagLocationDuration = Duration.between(beginTag, Instant.now());
 
       // filter out non existent keys/records
+      // 过滤不存在的hoodieRecord
       HoodieData<HoodieRecord<T>> taggedValidRecords = taggedRecords.filter(HoodieRecord::isCurrentLocationKnown);
       HoodieWriteMetadata<HoodieData<WriteStatus>> result;
       if (!taggedValidRecords.isEmpty()) {
+        // 根据不同的执行器做对应操作，这里mor和cow类似逻辑
         result = deleteExecutor.execute(taggedValidRecords);
+        // 更新index lookup耗时
         result.setIndexLookupDuration(tagLocationDuration);
       } else {
         // if entire set of keys are non existent

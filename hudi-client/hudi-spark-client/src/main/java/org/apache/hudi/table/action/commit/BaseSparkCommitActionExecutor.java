@@ -153,6 +153,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     WorkloadProfile workloadProfile = null;
     if (isWorkloadProfileNeeded()) {
       context.setJobStatus(this.getClass().getSimpleName(), "Building workload profile: " + config.getTableName());
+      // 计算input对应update条数和insert条数
       workloadProfile = new WorkloadProfile(buildProfile(inputRecords), operationType, table.getIndex().canIndexLogFiles());
       LOG.info("Input workload profile :" + workloadProfile);
     }
@@ -171,6 +172,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     context.setJobStatus(this.getClass().getSimpleName(), "Doing partition and writing data: " + config.getTableName());
     HoodieData<WriteStatus> writeStatuses = mapPartitionsAsRDD(inputRecordsWithClusteringUpdate, partitioner);
     HoodieWriteMetadata<HoodieData<WriteStatus>> result = new HoodieWriteMetadata<>();
+    // commit、更新index
     updateIndexAndCommitIfNeeded(writeStatuses, result);
     return result;
   }
@@ -181,6 +183,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
 
     // group the records by partitionPath + currentLocation combination, count the number of
     // records in each partition
+    // 计算每个分区的对应文件的数据条数
     Map<Tuple2<String, Option<HoodieRecordLocation>>, Long> partitionLocationCounts = inputRecords
         .mapToPair(record -> Pair.of(
             new Tuple2<>(record.getPartitionPath(), Option.ofNullable(record.getCurrentLocation())), record))
@@ -225,6 +228,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
         dedupedRecords.mapToPair(record -> Pair.of(new Tuple2<>(record.getKey(), Option.ofNullable(record.getCurrentLocation())), record)));
 
     JavaPairRDD<Tuple2<HoodieKey, Option<HoodieRecordLocation>>, HoodieRecord<T>> partitionedRDD;
+    // HFILE需要排序，HFile应用与底层metadata结构，hfile的kv结构可以使得json数据可以快速检索
     if (table.requireSortedRecords()) {
       // Partition and sort within each partition as a single step. This is faster than partitioning first and then
       // applying a sort.
@@ -292,6 +296,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
     // Finalize write
     finalizeWrite(instantTime, writeStats, result);
     try {
+      // 归档metadata
       HoodieActiveTimeline activeTimeline = table.getActiveTimeline();
       HoodieCommitMetadata metadata = result.getCommitMetadata().get();
       writeTableMetadata(metadata, actionType);

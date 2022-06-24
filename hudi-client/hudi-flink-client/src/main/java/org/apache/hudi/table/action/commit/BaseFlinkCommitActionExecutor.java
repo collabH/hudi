@@ -96,6 +96,7 @@ public abstract class BaseFlinkCommitActionExecutor<T extends HoodieRecordPayloa
 
   @Override
   public HoodieWriteMetadata<List<WriteStatus>> execute(List<HoodieRecord<T>> inputRecords) {
+    // 处理的一批数据，存储计算结果
     HoodieWriteMetadata<List<WriteStatus>> result = new HoodieWriteMetadata<>();
 
     List<WriteStatus> writeStatuses = new LinkedList<>();
