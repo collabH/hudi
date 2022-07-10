@@ -26,6 +26,7 @@ import org.apache.hudi.sink.partitioner.profile.WriteProfiles;
 
 /**
  * Utilities for {@code BucketAssigner}.
+ * 分桶工具类
  */
 public abstract class BucketAssigners {
 

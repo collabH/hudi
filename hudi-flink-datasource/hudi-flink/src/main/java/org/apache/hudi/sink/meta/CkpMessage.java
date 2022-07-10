@@ -92,7 +92,7 @@ public class CkpMessage implements Serializable, Comparable<CkpMessage> {
     return COMPARATOR.compare(this, o);
   }
 
-  /**
+  /**t
    * Instant State.
    */
   public enum State {

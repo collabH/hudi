@@ -216,6 +216,7 @@ public class BootstrapOperator<I, O extends HoodieRecord<?>>
           }
           try (ClosableIterator<HoodieKey> iterator = fileUtils.getHoodieKeyIterator(this.hadoopConf, new Path(baseFile.getPath()))) {
             iterator.forEachRemaining(hoodieKey -> {
+              // 发送index record至bucketAssignFunction构建indexState
               output.collect(new StreamRecord(new IndexRecord(generateHoodieRecord(hoodieKey, fileSlice))));
             });
           }

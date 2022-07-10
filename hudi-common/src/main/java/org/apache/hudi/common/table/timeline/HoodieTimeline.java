@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
+ * hudi timeline基础接口层对象
  * HoodieTimeline is a view of meta-data instants in the hoodie table. Instants are specific points in time
  * represented as HoodieInstant.
  * <p>
@@ -43,21 +44,29 @@ import java.util.stream.Stream;
  */
 public interface HoodieTimeline extends Serializable {
 
+  /**
+   *  all support action
+   */
   String COMMIT_ACTION = "commit";
   String DELTA_COMMIT_ACTION = "deltacommit";
   String CLEAN_ACTION = "clean";
   String ROLLBACK_ACTION = "rollback";
   String SAVEPOINT_ACTION = "savepoint";
   String REPLACE_COMMIT_ACTION = "replacecommit";
-  String INFLIGHT_EXTENSION = ".inflight";
   // With Async Compaction, compaction instant can be in 3 states :
   // (compaction-requested), (compaction-inflight), (completed)
   String COMPACTION_ACTION = "compaction";
-  String REQUESTED_EXTENSION = ".requested";
   String RESTORE_ACTION = "restore";
   String INDEXING_ACTION = "indexing";
   // only for schema save
   String SCHEMA_COMMIT_ACTION = "schemacommit";
+  /**
+   * state后缀
+   */
+  String INFLIGHT_EXTENSION = ".inflight";
+  String REQUESTED_EXTENSION = ".requested";
+
+
 
   String[] VALID_ACTIONS_IN_TIMELINE = {COMMIT_ACTION, DELTA_COMMIT_ACTION,
       CLEAN_ACTION, SAVEPOINT_ACTION, RESTORE_ACTION, ROLLBACK_ACTION,
@@ -105,6 +114,7 @@ public interface HoodieTimeline extends Serializable {
 
   /**
    * Filter this timeline to just include the in-flights.
+   * 过滤掉state为inflight的action
    *
    * @return New instance of HoodieTimeline with just in-flights
    */
@@ -119,7 +129,7 @@ public interface HoodieTimeline extends Serializable {
 
   /**
    * Filter this timeline to just include the in-flights excluding compaction instants.
-   *
+   * 过滤掉处理compaction action之外的inflights action
    * @return New instance of HoodieTimeline with just in-flights excluding compaction instants
    */
   HoodieTimeline filterPendingExcludingCompaction();

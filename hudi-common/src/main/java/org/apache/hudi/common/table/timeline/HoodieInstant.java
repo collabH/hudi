@@ -43,7 +43,7 @@ public class HoodieInstant implements Serializable, Comparable<HoodieInstant> {
 
   public static final Comparator<HoodieInstant> ACTION_COMPARATOR =
       Comparator.comparing(instant -> getComparableAction(instant.getAction()));
-
+  // 比较instant time，保留大的instant time
   public static final Comparator<HoodieInstant> COMPARATOR = Comparator.comparing(HoodieInstant::getTimestamp)
       .thenComparing(ACTION_COMPARATOR).thenComparing(HoodieInstant::getState);
 
